@@ -10,9 +10,11 @@
 
 #include "GASInteractionSystem/GAS/GameplayAbilityBase.h"
 #include "GASInteractionSystem/Interfaces/Interactable.h"
+#include "GASInteractionSystem/Player/GASCharacterMovementComponent.h"
 
 
-AGASInteractionSystemCharacter::AGASInteractionSystemCharacter()
+AGASInteractionSystemCharacter::AGASInteractionSystemCharacter(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer.SetDefaultSubobjectClass<UGASCharacterMovementComponent>(AGASInteractionSystemCharacter::CharacterMovementComponentName))
 {
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);

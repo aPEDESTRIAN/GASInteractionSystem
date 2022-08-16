@@ -15,7 +15,7 @@ class AGASInteractionSystemCharacter : public ACharacter, public IAbilitySystemI
 	GENERATED_BODY()
 
 public:
-	AGASInteractionSystemCharacter();
+	AGASInteractionSystemCharacter(const FObjectInitializer& ObjectInitializer);
 
 	// Called when this Pawn is possessed. Only called on the server.
 	virtual void PossessedBy(AController* NewController) override;
