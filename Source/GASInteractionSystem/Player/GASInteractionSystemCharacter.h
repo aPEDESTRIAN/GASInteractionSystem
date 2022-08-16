@@ -105,4 +105,28 @@ private:
 #pragma endregion
 
 
+// =================================================================
+// =========================[ INTERACTION ]=========================
+// =================================================================
+#pragma region INTERACTION
+public:
+	UFUNCTION(BlueprintPure, Category = "Interaction")
+	AActor* GetClosestInteractable() const;
+
+	// If bFocus is true, this actor will scan for interactables
+	// Should ONLY be set to true on local client
+	UFUNCTION(BlueprintCallable, Category = "Interaction")
+	void SetFocusInteractables(bool bFocus);
+
+private:
+	UPROPERTY()
+	AActor* CurrentFocus = nullptr;
+
+	FTimerHandle InteractableCheckTimer;
+
+	UFUNCTION(BlueprintCosmetic)
+	void FocusClosestInteractable();
+
+#pragma endregion
+
 };

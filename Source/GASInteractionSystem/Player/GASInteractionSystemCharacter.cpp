@@ -9,6 +9,7 @@
 #include "GameFramework/SpringArmComponent.h"
 
 #include "GASInteractionSystem/GAS/GameplayAbilityBase.h"
+#include "GASInteractionSystem/Interfaces/Interactable.h"
 
 
 AGASInteractionSystemCharacter::AGASInteractionSystemCharacter()
@@ -65,6 +66,11 @@ void AGASInteractionSystemCharacter::PossessedBy(AController* NewController)
 	// ============================================
 
 	ServerSetupGAS();
+
+	if (IsLocallyControlled())
+	{
+		SetFocusInteractables(true);
+	}
 }
 
 void AGASInteractionSystemCharacter::OnRep_PlayerState()
@@ -78,6 +84,7 @@ void AGASInteractionSystemCharacter::OnRep_PlayerState()
 	if (IsLocallyControlled())
 	{
 		ClientSetupGAS();
+		SetFocusInteractables(true);
 	}
 }
 
@@ -225,6 +232,106 @@ void AGASInteractionSystemCharacter::BindAbilitiesToInput() const
 	{
 		const FGameplayAbilityInputBinds Binds("Confirm", "Cancel", "EAbilityInputID", static_cast<int32>(EAbilityInputID::Confirm), static_cast<int32>(EAbilityInputID::Cancel));
 		AbilitySystemComponent->BindAbilityActivationToInputComponent(InputComponent, Binds);
+	}
+}
+
+#pragma endregion
+
+
+// =================================================================
+// =========================[ INTERACTION ]=========================
+// =================================================================
+#pragma region INTERACTION
+
+AActor* AGASInteractionSystemCharacter::GetClosestInteractable() const
+{
+	TSet<AActor*> OverlappingActors;
+	GetCapsuleComponent()->GetOverlappingActors(OverlappingActors);
+
+	AActor* ClosestInteractable = nullptr;
+	const FVector MyPos = GetActorLocation();
+	float SmallestDist = BIG_NUMBER;
+
+	for (auto OverlappedActor : OverlappingActors)
+	{
+		// If this is an interactable AND we can interact with it
+		if (OverlappedActor->GetClass()->ImplementsInterface(UInteractable::StaticClass())
+			&& IInteractable::Execute_CanInteractWith(OverlappedActor, AbilitySystemComponent))
+		{
+			float NewDist = FVector::DistSquared(MyPos, OverlappedActor->GetActorLocation());
+			if (NewDist < SmallestDist)
+			{
+				SmallestDist = NewDist;
+				ClosestInteractable = OverlappedActor;
+			}
+		}
+	}
+
+	return ClosestInteractable;
+}
+
+void AGASInteractionSystemCharacter::SetFocusInteractables(bool bFocus)
+{
+	if (bFocus)
+	{
+		GetWorld()->GetTimerManager().SetTimer(InteractableCheckTimer, this, &AGASInteractionSystemCharacter::FocusClosestInteractable, 0.2f, true);
+	}
+	else
+	{
+		GetWorld()->GetTimerManager().ClearTimer(InteractableCheckTimer);
+
+		if (CurrentFocus != nullptr)
+		{
+			IInteractable::Execute_OnFocusChanged(CurrentFocus, false, AbilitySystemComponent);
+			CurrentFocus = nullptr;
+		}
+	}
+}
+
+void AGASInteractionSystemCharacter::FocusClosestInteractable()
+{
+	// TODO: do we want to remove this? if so, spectators can see what it in range too
+	if (IsLocallyControlled())
+	{
+		auto ClosestActor = GetClosestInteractable();
+
+		// Nothing in range
+		if (ClosestActor == nullptr)
+		{
+			// Did we have a target before?  If so, tell them they are no longer the focus
+			if (CurrentFocus != nullptr)
+			{
+				IInteractable::Execute_OnFocusChanged(CurrentFocus, false, AbilitySystemComponent);
+				CurrentFocus = nullptr;
+			}
+		}
+		// Something in range
+		else
+		{
+			// There's a new target
+			if (ClosestActor != CurrentFocus)
+			{
+				// There was a previous target, tell them they are no longer focus
+				if (CurrentFocus != nullptr)
+				{
+					IInteractable::Execute_OnFocusChanged(CurrentFocus, false, AbilitySystemComponent);
+				}
+
+				CurrentFocus = ClosestActor;
+				IInteractable::Execute_OnFocusChanged(CurrentFocus, true, AbilitySystemComponent);
+			}
+		}
+	}
+	else
+	{
+		// Did we have a target?
+		if (CurrentFocus != nullptr)
+		{
+			IInteractable::Execute_OnFocusChanged(CurrentFocus, false, AbilitySystemComponent);
+			CurrentFocus = nullptr;
+		}
+
+		SetFocusInteractables(false);
 	}
 }
 
